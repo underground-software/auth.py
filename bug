@@ -1,0 +1,3 @@
+logging out user="user" logs out everyone
+likely reason: table sessions column name for username is user
+	so WHERE user="user" selects all
