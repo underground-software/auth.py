@@ -4,31 +4,18 @@ from http import cookies
 import sys, datetime, bcrypt, sqlite3, hashlib, random
 from subprocess import run, PIPE
 
-# FYI: define SR to mean start response
-# FYI: define US to mean user session
+from config import SESSIONS_DB, USERS_DB,\
+	TXT_ALERT, LOG_ALERT, ALERT_LOGFILE,\
+	NAV, NAV_AUTH, HEADER,\
+	SESSION_DAYS, SESSION_MINS
+
+# FYI: SR means "start response": it's the function
+#	called to start the http response
+# FYI: US means "user session": it's used whenever
+#	we are dealing with user session info
 
 VERSION="0.2"
 APPLICATION="venus"
-
-TXT_ALERT=True
-LOG_ALERT=True
-ALERT_LOGFILE='alert.log'
-
-def ALERT(msg):
-	if TXT_ALERT:
-		m = '%s: %s' % (appver(), msg)
-		o = run(['./textme.sh', m], stdout=PIPE, stderr=PIPE)
-		printd(o)
-	if LOG_ALERT:
-		t = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S GMT')
-		o ='log %s' % msg
-		m = '[%s] %s' % (t, msg)
-		try:
-			with open(ALERT_LOGFILE, 'a') as f:
-				print(m, file=f)
-		except Exception as e:
-			o += '\n%s' % str(e)
-		printd(o)
 
 FORM_LOGIN="""
 	<form id="login" method="post" action="/login">
@@ -122,13 +109,87 @@ FORM_LOGOUT_INTERNAL="""
 	</form>
 """
 
+def session_enum():
+	session_enum.cnt += 1
+	return session_enum.cnt
+session_enum.cnt = 0
+
+# data = (token,..)
+SESSION_GET_TOKEN=session_enum()
+SESSION_GET_TOKEN_COMM="SELECT token, user, expiry FROM sessions WHERE token = \"%s\";"
+
+# data = (...,user,...)
+SESSION_GET_USER=session_enum()
+SESSION_GET_USER_COMM="SELECT token, user, expiry FROM sessions WHERE user= \"%s\";"
+
+# data = (token, user, expiry)
+SESSION_NEW=session_enum()
+SESSION_NEW_COMM="INSERT INTO sessions (token, user, expiry) VALUES (\"%s\", \"%s\", \"%s\");"
+
+# data = (token,..)
+SESSION_DROP_TOKEN=session_enum()
+SESSION_DROP_TOKEN_COMM = "DELETE FROM sessions WHERE token = \"%s\";"
+
+# data = (...,user,...)
+SESSION_DROP_USER=session_enum()
+SESSION_DROP_USER_COMM = "DELETE FROM sessions WHERE user = \"%s\";"
+
+def _do_sessions_comm(comm, commit=False, fetch=False):
+	return do_sqlite3_comm(SESSIONS_DB, comm, commit=commit, fetch=fetch)
+
+
+def do_sessions_comm(comm, US=None):
+	if   comm == SESSION_NEW:
+		return _do_sessions_comm(SESSION_NEW_COMM % US, commit=True)
+	elif comm == SESSION_GET_TOKEN:
+		return _do_sessions_comm(SESSION_GET_TOKEN_COMM % (US_token(US)), fetch=True)
+	elif comm == SESSION_GET_USER:
+		return _do_sessions_comm(SESSION_GET_USER_COMM % (US_user(US)), fetch=True)
+	elif comm == SESSION_DROP_TOKEN:
+		return _do_sessions_comm(SESSION_DROP_TOKEN_COMM % (US_token(US)), commit=True)
+	elif comm == SESSION_DROP_USER:
+		return _do_sessions_comm(SESSION_DROP_USER_COMM % (US_user(US)), commit=True)
+	else:
+		printd("unknown sessions comm type")
+		return None	
+
+def appver():
+	return "%s %s" % (APPLICATION, VERSION)
+
+def messageblock(lst):
+	res=''
+	sep = '<br /><hr /><br />'
+
+	res += sep
+	for item in lst:
+		res += "<code>%s = %s</code><br />" % (item[0], str(item[1]))
+	res += sep
+
+	return res
+
+def ALERT(msg):
+	if TXT_ALERT:
+		m = '%s: %s' % (appver(), msg)
+		o = run(['./textme.sh', m], stdout=PIPE, stderr=PIPE)
+		printd(o)
+	if LOG_ALERT:
+		t = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S GMT')
+		o ='log %s' % msg
+		m = '[%s] %s' % (t, msg)
+		try:
+			with open(ALERT_LOGFILE, 'a') as f:
+				print(m, file=f)
+		except Exception as e:
+			o += '\n%s' % str(e)
+		printd(o)
+
+
 # Source: https://stackoverflow.com/questions/14107260/set-a-cookie-and-retrieve-it-with-python-and-wsgi
-def set_cookie_header(name, value, days=0, minutes=60):
-    dt = datetime.datetime.now() + datetime.timedelta(days=days,minutes=minutes)
-    fdt = dt.strftime('%a, %d %b %Y %H:%M:%S GMT')
-    #secs = days * 86400
-    secs = 60 * 60
-    return ('Set-Cookie', '{}={}; Expires={}; Max-Age={}; Path=/'.format(name, value, fdt, secs))
+def set_cookie_header(name, value, days=SESSION_DAYS, minutes=SESSION_MINS):
+	dt = datetime.datetime.now() + datetime.timedelta(days=days,minutes=minutes)
+	fdt = dt.strftime('%a, %d %b %Y %H:%M:%S GMT')
+	secs = 60 * minutes + 86400 * days
+	return ('Set-Cookie', '{}={}; Expires={}; Max-Age={}; Path=/'.format(name, value, fdt, secs))
 
 # US (user session data) structure (token, user, expiry)
 def US_token(US):
@@ -183,54 +244,6 @@ def do_sqlite3_comm(db, comm, commit=False, fetch=False):
 
 	return result
 
-
-KDLP_SESSIONS_DB='sessions.db'
-KDLP_USERS_DB = 'users.db'
-KDLP_URLBASE='/var/www/html/kdlp.underground.software/'
-
-def session_enum():
-	session_enum.cnt += 1
-	return session_enum.cnt
-session_enum.cnt = 0
-
-# data = (token,..)
-SESSION_GET_TOKEN=session_enum()
-SESSION_GET_TOKEN_COMM="SELECT token, user, expiry FROM sessions WHERE token = \"%s\";"
-
-# data = (...,user,...)
-SESSION_GET_USER=session_enum()
-SESSION_GET_USER_COMM="SELECT token, user, expiry FROM sessions WHERE user= \"%s\";"
-
-# data = (token, user, expiry)
-SESSION_NEW=session_enum()
-SESSION_NEW_COMM="INSERT INTO sessions (token, user, expiry) VALUES (\"%s\", \"%s\", \"%s\");"
-
-# data = (token,..)
-SESSION_DROP_TOKEN=session_enum()
-SESSION_DROP_TOKEN_COMM = "DELETE FROM sessions WHERE token = \"%s\";"
-
-# data = (...,user,...)
-SESSION_DROP_USER=session_enum()
-SESSION_DROP_USER_COMM = "DELETE FROM sessions WHERE user = \"%s\";"
-
-def _do_sessions_comm(comm, commit=False, fetch=False):
-	return do_sqlite3_comm(KDLP_SESSIONS_DB, comm, commit=commit, fetch=fetch)
-
-def do_sessions_comm(comm, US=None):
-	if   comm == SESSION_NEW:
-		return _do_sessions_comm(SESSION_NEW_COMM % US, commit=True)
-	elif comm == SESSION_GET_TOKEN:
-		return _do_sessions_comm(SESSION_GET_TOKEN_COMM % (US_token(US)), fetch=True)
-	elif comm == SESSION_GET_USER:
-		return _do_sessions_comm(SESSION_GET_USER_COMM % (US_user(US)), fetch=True)
-	elif comm == SESSION_DROP_TOKEN:
-		return _do_sessions_comm(SESSION_DROP_TOKEN_COMM % (US_token(US)), commit=True)
-	elif comm == SESSION_DROP_USER:
-		return _do_sessions_comm(SESSION_DROP_USER_COMM % (US_user(US)), commit=True)
-	else:
-		printd("unknown sessions comm type")
-		return None	
-
 def new_session_by_username(session_username):
 	
 	ALERT('start session for user %s ' % session_username)
@@ -243,8 +256,8 @@ def new_session_by_username(session_username):
 		+ str(datetime.datetime.now())) \
 		+ bytes8(''.join(random.choices("ABCDEFGHIJ",k=10)))).hexdigest()
 
-	# sessions expire in 60 minutes for now
-	session_expiry = (datetime.datetime.utcnow() + datetime.timedelta(minutes=60)).timestamp()
+	# sessions expire in SESSION_DAYS * 24 * 60 + SESSION_MINS minutes for now
+	session_expiry = (datetime.datetime.utcnow() + datetime.timedelta(minutes=SESSION_MINS, days=SESSION_DAYS)).timestamp()
 
 	do_sessions_comm(SESSION_NEW, mkUS(token=session_token, \
 		user=session_username, expiry=session_expiry))
@@ -363,7 +376,7 @@ def is_post_req(env):
 def get_pwdhash_by_user(username):
 	comm="select pwdhash from users where username = \"%s\";" % username
 
-	result=do_sqlite3_comm(KDLP_USERS_DB, comm, fetch=True)
+	result=do_sqlite3_comm(USERS_DB, comm, fetch=True)
 	if result is not None:
 		result = result[0]
 
@@ -428,31 +441,17 @@ def get_session_from_cookie(env):
 
 	return US	
 
-def appver():
-	return "%s %s" % (APPLICATION, VERSION)
-
-def messageblock(lst):
-	res=''
-	sep = '<br /><hr /><br />'
-
-	res += sep
-	for item in lst:
-		res += "<code>%s = %s</code><br />" % (item[0], str(item[1]))
-	res += sep
-
-	return res
-
 def generate_page_login(form, SR, extra_headers, msg, logged_in=False):
 	base=''
 
-	with open(KDLP_URLBASE + 'header', "r") as f:
+	with open(HEADER, 'r') as f:
 		base += f.read()
 
-	nav = 'nav'
-	if logged_in:
-		nav = 'nav_us'
+	nav = NAV
+	if logged_in and NAV_AUTH is not None:
+		nav = NAV_AUTH
 	
-	with open(KDLP_URLBASE + nav, "r") as f:
+	with open(NAV, 'r') as f:
 		base += f.read()
 
 	base += form 
@@ -460,7 +459,6 @@ def generate_page_login(form, SR, extra_headers, msg, logged_in=False):
 	extra = messageblock([('message', msg), ('appver', appver())])
 
 	return ok_html(base, SR, extra_docs=extra, extra_headers=extra_headers)
-
 
 def check_logout(queries):
 	return queries.get('logout', '') == ['true']
@@ -517,7 +515,6 @@ def handle_login(queries, SR, env):
 			msg = 'start new session for user %s' % US_user(US)
 			# we just logged in as $USERNAMAE
 			extra_headers.append(set_cookie_header("auth", US_token(US)))
-	
 	
 	# default to login form unless we have a valid user_session
 	main_form = FORM_LOGIN

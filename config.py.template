@@ -1,0 +1,16 @@
+#!/bin/env python3
+
+SESSIONS_DB	= 'sessions.db'
+USERS_DB 	= 'users.db'
+URLBASE		= '/path
+
+HEADER		= '/path/to/header/file'
+NAV		= '/path/to/nav/file'
+NAV_AUTH	= None # alternate nav when logged in if any
+
+TXT_ALERT 	= True
+LOG_ALERT	= True
+ALERT_LOGFILE 	= 'alert.log'
+
+SESSION_MINS	= 60
+SESSION_DAYS	= 0
