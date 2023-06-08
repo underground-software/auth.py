@@ -1,0 +1,8 @@
+PRAGMA foreign_keys=OFF;
+BEGIN TRANSACTION;
+CREATE TABLE sessions (
+        token string PRIMARY KEY,
+        user string UNIQUE NOT NULL,
+        expiry string NOT NULL);
+COMMIT;
+
