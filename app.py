@@ -137,7 +137,7 @@ def _do_sessions_comm(comm, commit=False, fetch=False):
 
 
 def do_sessions_comm(comm, US=None):
-	if   comm == SESSION_NEW:
+	if	 comm == SESSION_NEW:
 		return _do_sessions_comm(SESSION_NEW_COMM % US, commit=True)
 	elif comm == SESSION_GET_TOKEN:
 		return _do_sessions_comm(SESSION_GET_TOKEN_COMM % (US_token(US)), fetch=True)
@@ -152,7 +152,7 @@ def do_sessions_comm(comm, US=None):
 		return None	
 
 def ALERT(msg):
-    # this will be temporarily broken before this part is automated
+	# this will be temporarily broken before this part is automated
 	if TXT_ALERT:
 		m = '%s: %s' % (appver(), msg)
 		o = run(['./textme.sh', m], stdout=PIPE, stderr=PIPE)
@@ -233,14 +233,13 @@ def new_session_by_username(session_username):
 	
 	ALERT('start session for user %s ' % session_username)
 	
-        
 	if get_session_by_username(session_username) is not None:
-        # If there is an existing sesion open, drop the old session
-        if NEW_LOGIN_BUMPS_OLD:
-            drop_session_by_username(session_username)
-        # If there is an existing sesion open, don't let the new one start
-        else:
-            return None
+	# If there is an existing sesion open, drop the old session
+	if NEW_LOGIN_BUMPS_OLD:
+		drop_session_by_username(session_username)
+	# If there is an existing sesion open, don't let the new one start
+	else:
+		return None
 
 	# Make a session_token out of sha256(username + time + random string)
 	session_token = hashlib.sha256(bytes8(session_username \
