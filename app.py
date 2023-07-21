@@ -234,12 +234,12 @@ def new_session_by_username(session_username):
 	ALERT('start session for user %s ' % session_username)
 	
 	if get_session_by_username(session_username) is not None:
-	# If there is an existing sesion open, drop the old session
-	if NEW_LOGIN_BUMPS_OLD:
-		drop_session_by_username(session_username)
-	# If there is an existing sesion open, don't let the new one start
-	else:
-		return None
+		# If there is an existing sesion open, drop the old session
+		if NEW_LOGIN_BUMPS_OLD:
+			drop_session_by_username(session_username)
+		# If there is an existing sesion open, don't let the new one start
+		else:
+			return None
 
 	# Make a session_token out of sha256(username + time + random string)
 	session_token = hashlib.sha256(bytes8(session_username \
