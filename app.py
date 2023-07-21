@@ -6,16 +6,14 @@ from subprocess import run, PIPE
 
 from config import SESSIONS_DB, USERS_DB,\
 	TXT_ALERT, LOG_ALERT, ALERT_LOGFILE,\
-	NAV, NAV_AUTH, HEADER,\
-	SESSION_DAYS, SESSION_MINS
+	SESSION_DAYS, SESSION_MINS, NEW_SESSION_BUMPS_OLD
+
+from orbit import appver, messageblock, ROOT
 
 # FYI: SR means "start response": it's the function
 #	called to start the http response
 # FYI: US means "user session": it's used whenever
 #	we are dealing with user session info
-
-VERSION="0.2"
-APPLICATION="venus"
 
 FORM_LOGIN="""
 	<form id="login" method="post" action="/login">
@@ -153,21 +151,8 @@ def do_sessions_comm(comm, US=None):
 		printd("unknown sessions comm type")
 		return None	
 
-def appver():
-	return "%s %s" % (APPLICATION, VERSION)
-
-def messageblock(lst):
-	res=''
-	sep = '<br /><hr /><br />'
-
-	res += sep
-	for item in lst:
-		res += "<code>%s = %s</code><br />" % (item[0], str(item[1]))
-	res += sep
-
-	return res
-
 def ALERT(msg):
+    # this will be temporarily broken before this part is automated
 	if TXT_ALERT:
 		m = '%s: %s' % (appver(), msg)
 		o = run(['./textme.sh', m], stdout=PIPE, stderr=PIPE)
@@ -248,8 +233,14 @@ def new_session_by_username(session_username):
 	
 	ALERT('start session for user %s ' % session_username)
 	
+        
 	if get_session_by_username(session_username) is not None:
-		return None
+        # If there is an existing sesion open, drop the old session
+        if NEW_LOGIN_BUMPS_OLD:
+            drop_session_by_username(session_username)
+        # If there is an existing sesion open, don't let the new one start
+        else:
+            return None
 
 	# Make a session_token out of sha256(username + time + random string)
 	session_token = hashlib.sha256(bytes8(session_username \
@@ -444,13 +435,7 @@ def get_session_from_cookie(env):
 def generate_page_login(form, SR, extra_headers, msg, logged_in=False):
 	base=''
 
-	with open(HEADER, 'r') as f:
-		base += f.read()
-
-	nav = NAV
-	if logged_in and NAV_AUTH is not None:
-		nav = NAV_AUTH
-	
+	nav = ROOT + '/data/header'
 	with open(NAV, 'r') as f:
 		base += f.read()
 
