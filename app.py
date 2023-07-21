@@ -435,7 +435,7 @@ def generate_page_login(form, SR, extra_headers, msg, logged_in=False):
 	base=''
 
 	nav = ROOT + '/data/header'
-	with open(NAV, 'r') as f:
+	with open(nav, 'r') as f:
 		base += f.read()
 
 	base += form 
