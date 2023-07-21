@@ -8,7 +8,7 @@ from config import SESSIONS_DB, USERS_DB,\
 	TXT_ALERT, LOG_ALERT, ALERT_LOGFILE,\
 	SESSION_DAYS, SESSION_MINS, NEW_SESSION_BUMPS_OLD
 
-from orbit import appver, messageblock, ROOT
+from orbit import appver, messageblock, ROOT, DP
 
 # FYI: SR means "start response": it's the function
 #	called to start the http response
@@ -148,7 +148,7 @@ def do_sessions_comm(comm, US=None):
 	elif comm == SESSION_DROP_USER:
 		return _do_sessions_comm(SESSION_DROP_USER_COMM % (US_user(US)), commit=True)
 	else:
-		printd("unknown sessions comm type")
+		DP("unknown sessions comm type")
 		return None	
 
 def ALERT(msg):
@@ -156,7 +156,7 @@ def ALERT(msg):
 	if TXT_ALERT:
 		m = '%s: %s' % (appver(), msg)
 		o = run(['./textme.sh', m], stdout=PIPE, stderr=PIPE)
-		printd(o)
+		DP(o)
 	if LOG_ALERT:
 		t = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S GMT')
 		o ='log %s' % msg
@@ -166,7 +166,7 @@ def ALERT(msg):
 				print(m, file=f)
 		except Exception as e:
 			o += '\n%s' % str(e)
-		printd(o)
+		DP(o)
 
 
 # Source: https://stackoverflow.com/questions/14107260/set-a-cookie-and-retrieve-it-with-python-and-wsgi
@@ -190,15 +190,15 @@ def US_expired(US):
 	if US_expiry(US) is None:
 		return None
 	if datetime.datetime.utcnow().timestamp() > US_expiry(US):
-		printd('US expired')
+		DP('US expired')
 	else:
-		printd('US unexpired')
+		DP('US unexpired')
 	return datetime.datetime.utcnow().timestamp() > US_expiry(US)
 
 def mkUS(token=None, user=None, expiry=None):
 	return (token, user, expiry) 
 
-def printd(string):
+def DP(string):
 	return print(string, file=sys.stderr)
 
 # shortand for bytes(string, "UTF-8")
@@ -214,15 +214,15 @@ def do_sqlite3_comm(db, comm, commit=False, fetch=False):
 	db_con = sqlite3.connect(db)
 	db_cur0 = db_con.cursor()
 	
-	printd("RUN SQL: %s" % comm)
+	DP("RUN SQL: %s" % comm)
 	db_cur1 = db_cur0.execute(comm)
 
 	if fetch:
 		result=db_cur1.fetchone()
-		printd("SQL RES: %s" % str(result))
+		DP("SQL RES: %s" % str(result))
 
 	if commit:
-		printd("RUN SQL: COMMIT;")
+		DP("RUN SQL: COMMIT;")
 		db_cur2 = db_cur1.execute("COMMIT;")
 
 	db_con.close()
@@ -235,7 +235,7 @@ def new_session_by_username(session_username):
 	
 	if get_session_by_username(session_username) is not None:
 		# If there is an existing sesion open, drop the old session
-		if NEW_LOGIN_BUMPS_OLD:
+		if NEW_SESSION_BUMPS_OLD:
 			drop_session_by_username(session_username)
 		# If there is an existing sesion open, don't let the new one start
 		else:
@@ -271,7 +271,7 @@ def get_session_by_username(session_username):
 	# purge the old session from the databse and return none 
 	# by re-trying the request
 	if US_expired(US):
-		printd('drop by username %s' % session_username)
+		DP('drop by username %s' % session_username)
 		drop_session_by_username(session_username)
 		return get_session_by_username(session_username)
 
@@ -287,7 +287,7 @@ def get_session_by_token(session_token):
 	# purge the old session from the databse and return none 
 	# by re-trying the request
 	if US_expired(US):
-		printd('drop by token %s' % session_token)
+		DP('drop by token %s' % session_token)
 		drop_session_by_token(session_token)
 		return get_session_by_token(session_token)
 	return US
@@ -462,14 +462,14 @@ def handle_login(queries, SR, env):
 		username = US_user(US)
 		# check if user requests logout
 		if check_logout(queries):
-			printd('logout initiated for %s' % username)
+			DP('logout initiated for %s' % username)
 			drop_session_by_username(username)
 			# clear local cookie on logout
 			extra_headers.append(set_cookie_header("auth", ""))
 			msg = 'logged out %s successfully' % username
 			US = None
 		elif check_renew(queries):
-			printd('renew initiated for %s' % username)
+			DP('renew initiated for %s' % username)
 			US = renew_session(US)
 			if US is not None:
 				msg = 'renewed session for %s' % username
@@ -520,7 +520,7 @@ def application(env, SR):
 	query_string = env.get("QUERY_STRING", "")
 	queries = parse_qs(query_string)
 
-	printd("New request: path_info=\"%s\", queries=\"%s\"" \
+	DP("New request: path_info=\"%s\", queries=\"%s\"" \
 		% (str(path_info), str(queries)))
 
 	if path_info == "/login":
