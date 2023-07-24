@@ -4,3 +4,5 @@
 # initialize empty databases
 sqlite3 users.db ".read users.default" ".exit"
 sqlite3 sessions.db ".read sessions.default" ".exit"
+
+pip install -r requirements.txt
