@@ -61,24 +61,14 @@ FORM_LOGOUT="""
 	<div class="logout_right">
 
 	<div class="logout_right_inner">
-	<h5> Test Pages </h5>
-	<ul>
-	<li>
-	<a href="/login/index.md">Authorizied Home</a>
-	</li>
-	
-	<li>
-	<a href="/login/second.md">Authorizied Second Page</a>
-	</li>
-	</ul>
 
-	<h5> Underground Software </h5>
+	<h5> Secure Pages </h5>
 	<ul>
 	<li>
 	<a href="/US">Home</a>
 	</li>
 	<li>
-	<a href="/game">Game</a>
+	<a href="/terminal">Terminal</a>
 	</li>
 	</ul>
 	</div>
