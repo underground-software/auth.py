@@ -3,6 +3,7 @@ from html import escape
 from http import cookies
 import sys, datetime, bcrypt, sqlite3, hashlib, random
 from subprocess import run, PIPE
+import os
 
 from config import SESSIONS_DB, USERS_DB,\
 	TXT_ALERT, LOG_ALERT, ALERT_LOGFILE,\
@@ -504,20 +505,50 @@ def handle_login(queries, SR, env):
 
 	return generate_page_login(main_form, SR, extra_headers, msg, logged_in=US is not None)
 
+def check_users_db_exists():
+    return os.path.exists(USERS_DB)
+
+def is_users_db_empty():
+    if check_users_db_exists():
+        comm = "SELECT COUNT(*) FROM users;"
+        user_count = do_sqlite3_comm(USERS_DB, comm, fetch=True)
+        return user_count and user_count[0] == 0
+    return False
+
+def check_sessions_db_exists():
+    return os.path.exists(SESSIONS_DB)
+
 def application(env, SR):
+    path_info = env.get("PATH_INFO", "")
+    query_string = env.get("QUERY_STRING", "")
+    queries = parse_qs(query_string)
 
-	path_info = env.get("PATH_INFO", "")
-	query_string = env.get("QUERY_STRING", "")
-	queries = parse_qs(query_string)
+    DP("New request: path_info=\"%s\", queries=\"%s\"" \
+        % (str(path_info), str(queries)))
 
-	DP("New request: path_info=\"%s\", queries=\"%s\"" \
-		% (str(path_info), str(queries)))
+    users_db_missing = not check_users_db_exists()
+    sessions_db_missing = not check_sessions_db_exists()
+    users_db_empty = is_users_db_empty()
 
-	if path_info == "/login":
-		return handle_login(queries, SR, env)
-	elif path_info == "/check":
-		return handle_check(queries, SR)
-	elif path_info == "/logout":
-		return handle_logout(queries, SR)
-	else:
-		return notfound_urlencoded('error="Page not found."', SR)
+    if users_db_missing and sessions_db_missing:
+        error_message = "Both 'users.db' and 'sessions.db' are missing or not configured properly."
+    elif users_db_missing:
+        error_message = "Database 'users.db' is missing or not configured properly."
+    elif sessions_db_missing:
+        error_message = "Database 'sessions.db' is missing or not configured properly."
+    elif users_db_empty:
+        error_message = "Database 'users.db' contains no user accounts."
+    else:
+        error_message = None
+
+    if error_message:
+        return notfound_urlencoded('error="%s"' % error_message, SR)
+
+    if path_info == "/login":
+        return handle_login(queries, SR, env)
+    elif path_info == "/check":
+        return handle_check(queries, SR)
+    elif path_info == "/logout":
+        return handle_logout(queries, SR)
+    else:
+        return notfound_urlencoded('error="Page not found."', SR)
