@@ -307,15 +307,13 @@ def notfound_urlencoded(content, SR):
 def _handle_check(token, SR):
 	US = get_session_by_token(token)
 
-	# If we have an unexpired session, the bearer
-	# of the token is authenticated as session[1]
 	if US is not None:
 		username = US_user(US)
 		# include authorized username in HTTP headers
-		return ok_urlencoded('auth=%s' % username, SR,
+		return ok_urlencoded(username, SR,
 			extra_headers=[('X-Auth-User', username)])
 	else:
-		return unauth_urlencoded('auth=nil', SR)
+		return unauth_urlencoded('null', SR)
 
 def handle_check(queries, SR):
 	token = queries.get('token',[''])[0]
@@ -330,9 +328,9 @@ def _handle_logout(username, SR):
 	# see comment in handle_check()
 	if US is not None:
 		drop_session_by_username(username)
-		return ok_urlencoded('logout=%s' % username, SR)
+		return ok_urlencoded(username, SR)
 	else:
-		return notfound_urlencoded('logout=nil', SR)
+		return notfound_urlencoded('null', SR)
 
 def handle_logout(queries, SR):
 	username = queries.get('username',[''])[0]
