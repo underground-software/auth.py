@@ -363,7 +363,13 @@ def get_pwdhash_by_user(username):
 # NOTE: Usage of any password in plaintext outside of this function is a bug
 def check_credentials(username, password):
 	pwdhash=get_pwdhash_by_user(username)
-	return pwdhash is not None and bcrypt.checkpw(bytes8(password), bytes8(pwdhash))
+	ret = pwdhash is not None and bcrypt.checkpw(bytes8(password), bytes8(pwdhash))
+	if ret:
+		DP(f'[AUTHENTICATED] Correct password for {username}')
+	else:
+		DP(f'Incorrect password for {username}')
+
+	return ret
 
 CREDS_OK	= 0
 CREDS_CONFLICT	= 1
@@ -425,7 +431,7 @@ def get_session_from_cookie(env):
 
 def quietly_generate_token_plaintext(SR, US):
 	SR('200 Ok', [('Content-Type', 'text/plain')])
-	return bytes8(US_token(US))
+	return bytes8(US_token(US) if US is not None else "null")
 
 
 def generate_page_login(form, SR, extra_headers, msg, logged_in=False):
