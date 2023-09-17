@@ -548,6 +548,14 @@ def application(env, SR):
 	query_string = env.get("QUERY_STRING", "")
 	queries = parse_qs(query_string)
 
+	if len(sys.argv) > 1:
+		match sys.argv[1]:
+			case 'test':
+				USERS_DB = 'users.test.db'
+				SESSIONS_DB = 'sessions.test.db'
+			case _:
+				pass
+
 	DP("New request: path_info=\"%s\", queries=\"%s\"" \
 		% (str(path_info), str(queries)))
 
