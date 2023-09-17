@@ -383,6 +383,7 @@ def login_creds_from_body(env):
 		# get actual urlencoded body content
 		username = escape(str8(data.get(bytes8('username'), [b''])[0]))
 		password = escape(str8(data.get(bytes8('password'), [b''])[0]))
+		quiet = escape(str8(data.get(bytes8('quiet'), [b'NO'])[0])) != b'NO'
 
 		if check_credentials(username, password):
 			# if the password is valid,
@@ -394,7 +395,7 @@ def login_creds_from_body(env):
 	if status == CREDS_CONFLICT:
 		US = mkUS(user=username)
 
-	return [US, status]
+	return [US, status, quiet]
 
 def renew_session(US):
 	# refresh US
@@ -424,6 +425,11 @@ def get_session_from_cookie(env):
 
 	return US	
 
+def quietly_generate_token_plaintext(SR, US):
+	SR('200 Ok', [('Content-Type', 'text/plain')])
+	return bytes8(US_token(US))
+
+
 def generate_page_login(form, SR, extra_headers, msg, logged_in=False):
 	base=''
 
@@ -442,6 +448,21 @@ def check_logout(queries):
 
 def check_renew(queries):
 	return queries.get('renew', '') == ['true']
+
+def build_login_form_html(SR, US, msg, extra_headers):
+	# default to login form unless we have a valid user_session
+	main_form = FORM_LOGIN
+	if US:
+		expiry_dt = datetime.datetime.fromtimestamp(US_expiry(US))
+		main_form = FORM_LOGOUT  % {
+			'token' : US_token(US),
+			'username' : US_user(US),
+			'expiry' : expiry_dt.strftime('%a, %d %b %Y %H:%M:%S GMT'),
+			'remaining' : str(expiry_dt - datetime.datetime.utcnow()),
+			'logout_button' : FORM_LOGOUT_INTERNAL
+		}
+
+	return generate_page_login(main_form, SR, extra_headers, msg, logged_in=US is not None)
 		
 def handle_login(queries, SR, env):
 	msg='welcome, please login'
@@ -474,9 +495,12 @@ def handle_login(queries, SR, env):
 	
 	# if not already logged in from cookie and if posting credentials
 	login_status=None
+	# quiet option enables automation to post a username and password
+	# in exchange for a plaintext valid sesssion token in isolation
+	quiet=False
 	if US is None and is_post_req(env):
 		# attempt to login using credentials from body
-		[US, login_status] = login_creds_from_body(env)
+		[US, login_status, quiet] = login_creds_from_body(env)
 	
 
 	# we made an attemmpt to login, handle the login response
@@ -492,20 +516,11 @@ def handle_login(queries, SR, env):
 			msg = 'start new session for user %s' % US_user(US)
 			# we just logged in as $USERNAMAE
 			extra_headers.append(set_cookie_header("auth", US_token(US)))
-	
-	# default to login form unless we have a valid user_session
-	main_form = FORM_LOGIN
-	if US:
-		expiry_dt = datetime.datetime.fromtimestamp(US_expiry(US))
-		main_form = FORM_LOGOUT  % {
-			'token' : US_token(US),
-			'username' : US_user(US),
-			'expiry' : expiry_dt.strftime('%a, %d %b %Y %H:%M:%S GMT'),
-			'remaining' : str(expiry_dt - datetime.datetime.utcnow()),
-			'logout_button' : FORM_LOGOUT_INTERNAL
-		}
 
-	return generate_page_login(main_form, SR, extra_headers, msg, logged_in=US is not None)
+	if quiet:
+		return quietly_generate_token_plaintext(SR, US)
+	else:
+		return build_login_form_html(SR, US, msg, extra_headers)
 
 def handle_mail_auth(SR, env):
 	username = env.get('HTTP_AUTH_USER', '')
