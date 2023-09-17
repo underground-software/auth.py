@@ -52,11 +52,12 @@ do_drop_session() {
 	HEADERS="Content-Type: application/x-www-form-urlencoded"
 	echo "GET ${URI} HTTP/1.1"
 	curl -H "${HEADERS}" -X GET "${URI}"
+	echo
 }
 
 do_create_session() {
 	URI="${AUTH_SERVER}/login"
-	BODY="username=${USER}&password=${PASS}&quiet=YES"
+	BODY="username=${USER}&password=${PASS}&quiet=yes"
 
 	Echo "POST ${URI} body: [${BODY}] HTTP/1.1"
 	curl -s -d "${BODY}" -X POST "${URI}" > token

@@ -387,7 +387,7 @@ def login_creds_from_body(env):
 		# get actual urlencoded body content
 		username = escape(str8(data.get(bytes8('username'), [b''])[0]))
 		password = escape(str8(data.get(bytes8('password'), [b''])[0]))
-		quiet = escape(str8(data.get(bytes8('quiet'), [b'NO'])[0])) != b'NO'
+		quiet = escape(str8(data.get(bytes8('quiet'), [b'NO'])[0])) == "yes"
 
 		if check_credentials(username, password):
 			# if the password is valid,
