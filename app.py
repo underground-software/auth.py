@@ -362,6 +362,11 @@ def get_pwdhash_by_user(username):
 
 	return result
 
+# NOTE: Usage of any password in plaintext outside of this function is a bug
+def check_credentials(username, password):
+	pwdhash=get_pwdhash_by_user(username)
+	return pwdhash is not None and bcrypt.checkpw(bytes8(password), bytes8(pwdhash))
+
 CREDS_OK	= 0
 CREDS_CONFLICT	= 1
 CREDS_BAD	= 2
@@ -379,9 +384,7 @@ def login_creds_from_body(env):
 		username = escape(str8(data.get(bytes8('username'), [b''])[0]))
 		password = escape(str8(data.get(bytes8('password'), [b''])[0]))
 
-		# plaintext password immediately checked and only used here
-		pwdhash=get_pwdhash_by_user(username)
-		if pwdhash is not None and bcrypt.checkpw(bytes8(password), bytes8(pwdhash)):
+		if check_credentials(username, password):
 			# if the password is valid,
 			# try to start a new session right away
 			US = new_session_by_username(username)
@@ -504,6 +507,22 @@ def handle_login(queries, SR, env):
 
 	return generate_page_login(main_form, SR, extra_headers, msg, logged_in=US is not None)
 
+def handle_mail_auth(SR, env):
+	username = env.get('HTTP_AUTH_USER', '')
+	password = env.get('HTTP_AUTH_PASS', '')
+	protocol = env.get('HTTP_AUTH_PROTOCOL', '')
+	method = env.get('HTTP_AUTH_METHOD', '')
+	#this should be impossible if nginx is configured properly
+	if not username or not password or protocol not in ('smtp', 'pop3') or method != 'plain':
+		SR('400 Bad Request', [('Auth-Status', 'Invalid Request')])
+		return ''
+	if not check_credentials(username, password):
+		#even for incorrect credentials we are to use 200 OK
+		SR('200 OK', [('Auth-Status', 'Invalid Credentials')])
+		return ''
+	SR('200 OK', [('Auth-Status', 'OK'), ('Auth-Server', '127.0.0.1'), ('Auth-Port', '1465' if protocol == 'smtp' else '1995')])
+	return ''
+
 def application(env, SR):
 
 	path_info = env.get("PATH_INFO", "")
@@ -519,5 +538,7 @@ def application(env, SR):
 		return handle_check(queries, SR)
 	elif path_info == "/logout":
 		return handle_logout(queries, SR)
+	elif path_info == "/mail_auth":
+		return handle_mail_auth(SR, env)
 	else:
 		return notfound_urlencoded('error="Page not found."', SR)
