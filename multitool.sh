@@ -216,7 +216,7 @@ do_existence_check_user() {
 }
 
 do_list_roster_users() {
-	CMD="SELECT id, username, pwdhash FROM users;"
+	CMD="SELECT id, username, pwdhash, lfx FROM users;"
 	Echo "Running sqlite command on $(basename "${DB_USERS}"): '${CMD}'"
 	OUT=`sqlite3 "${DB_USERS}" "${CMD}"`
 	echo -e "${OUT}"
@@ -238,6 +238,23 @@ do_mutate_pwdhash_user() {
 	sqlite3 "${DB_USERS}" "${CMD}"
 
 	echo "credentials = { username: ${USER}, password: ${PASS} }"
+}
+
+do_make_lfx_user() {
+	need_username_or_die
+
+
+	if ! do_existence_check_user > /dev/null; then
+		die "cannot change lfx status of nonexistent user '${USER}'"
+	fi
+
+	PWDHASH=$(do_hash_password)
+
+	CMD="UPDATE users SET lfx = TRUE WHERE username = '${USER}'"
+	Echo "Running sqlite command on $(basename "${DB_USERS}"): '${CMD}'"
+	sqlite3 "${DB_USERS}" "${CMD}"
+
+	echo "credentials = { username: ${USER}, lfx: true }"
 }
 
 do_check_session() {
@@ -263,7 +280,7 @@ OP="list_sessions"
 AUTH_SERVER=${ALT_AUTH_SERVER:-$(${SCRIPT_DIR}/get_auth_server.py)}
 VERBOSE='no'
 
-while getopts "f:sminawehdbcvru:p:t:" X; do
+while getopts "f:sminawehdblcvru:p:t:" X; do
 	case ${X} in
 		i)
 			VERBOSE='yes'
@@ -297,6 +314,9 @@ while getopts "f:sminawehdbcvru:p:t:" X; do
 			;;
 		m)
 			OP="mutate_pwdhash_user"
+			;;
+		l)
+			OP="make_lfx_user"
 			;;
 		u)
 			USER=${OPTARG}

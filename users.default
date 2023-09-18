@@ -3,6 +3,7 @@ BEGIN TRANSACTION;
 CREATE TABLE users (
 id integer primary key,
 username string UNIQUE NOT NULL,
-pwdhash string NOT NULL
+pwdhash string NOT NULL,
+lfx boolean NOT NULL
 );
 COMMIT;

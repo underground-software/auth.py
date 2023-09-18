@@ -539,7 +539,9 @@ def handle_mail_auth(SR, env):
 		#even for incorrect credentials we are to use 200 OK
 		SR('200 OK', [('Auth-Status', 'Invalid Credentials')])
 		return ''
-	SR('200 OK', [('Auth-Status', 'OK'), ('Auth-Server', '127.0.0.1'), ('Auth-Port', '1465' if protocol == 'smtp' else '1995')])
+	comm="select lfx from users where username = \"%s\";" % username
+	(lfx,) = do_sqlite3_comm(USERS_DB, comm, fetch=True)
+	SR('200 OK', [('Auth-Status', 'OK'), ('Auth-Server', '127.0.0.1'), (('Auth-Port', '1465' if protocol == 'smtp' else '1995') if not lfx else ('Auth-Port', '1466' if protocol == 'smtp' else '1996'))])
 	return ''
 
 def application(env, SR):
