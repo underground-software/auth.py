@@ -154,7 +154,7 @@ do_new_user() {
 
 	Echo "OK: hashpw(${PASS}, gensalt())=${PWDHASH}"
 
-	CMD="INSERT INTO users (username, pwdhash) VALUES ('${USER}', '${PWDHASH}');"
+	CMD="INSERT INTO users (username, pwdhash, lfx) VALUES ('${USER}', '${PWDHASH}', false);"
 
 	Echo "Running sqlite command on $(basename "${DB_USERS}") '${CMD}'"
 
