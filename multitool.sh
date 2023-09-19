@@ -264,6 +264,7 @@ do_check_session() {
 	HEADERS="Content-Type: application/x-www-form-urlencoded"
 	echo "GET ${URI} HTTP/1.1"
 	curl -H "${HEADERS}" -X GET "${URI}"
+	echo
 }
 
 # from: https://stackoverflow.com/questions/59895/how-do-i-get-the-directory-where-a-bash-script-is-located-from-within-the-script
